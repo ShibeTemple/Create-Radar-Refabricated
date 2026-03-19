@@ -17,6 +17,9 @@
   "entrypoints": {
     "main": [
       "com.happysg.radar.CreateRadar"
+    ],
+    "client": [
+      "com.happysg.radar.CreateRadarClient"
     ]
   },
   "mixins": [

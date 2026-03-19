@@ -339,4 +339,28 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
 
     public String getHoveredEntity() { return hoveredEntity; }
     public String getSelectedEntity() { return selectedEntity; }
+
+    public void showSafeZone() {
+        // Client-side: triggers safe zone rendering (handled by the monitor renderer)
+    }
+
+    public void addSafeZone(BlockPos start, BlockPos end) {
+        Box box = new Box(start, end).expand(1, 1, 1);
+        safeZones.add(box);
+        markDirty();
+        sendData();
+    }
+
+    public boolean tryRemoveAABB(BlockPos pos) {
+        Vec3d center = pos.toCenterPos();
+        for (int i = safeZones.size() - 1; i >= 0; i--) {
+            if (safeZones.get(i).contains(center)) {
+                safeZones.remove(i);
+                markDirty();
+                sendData();
+                return true;
+            }
+        }
+        return false;
+    }
 }

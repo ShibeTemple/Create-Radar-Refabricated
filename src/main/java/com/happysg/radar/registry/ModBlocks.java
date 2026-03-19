@@ -1,6 +1,7 @@
 package com.happysg.radar.registry;
 
 import com.happysg.radar.CreateRadar;
+import com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlock;
 import com.happysg.radar.block.monitor.MonitorBlock;
 import com.happysg.radar.block.radar.bearing.RadarBearingBlock;
 import com.happysg.radar.block.radar.receiver.AbstractRadarFrame;
@@ -86,6 +87,17 @@ public class ModBlocks {
                     .blockstate((ctx, prov) -> prov.directionalBlock(ctx.getEntry(), prov.models()
                             .getExistingFile(ctx.getId()), 0))
                     .transform(axeOrPickaxe())
+                    .simpleItem()
+                    .register();
+
+    public static final BlockEntry<NetworkFiltererBlock> NETWORK_FILTERER_BLOCK =
+            REGISTRATE.block("network_filterer", NetworkFiltererBlock::new)
+                    .initialProperties(SharedProperties::softMetal)
+                    .properties(p -> p.nonOpaque())
+                    .properties(p -> p.strength(0.8f))
+                    .transform(axeOrPickaxe())
+                    .blockstate((ctx, prov) -> prov.directionalBlock(ctx.getEntry(), prov.models()
+                            .getExistingFile(ctx.getId()), 0))
                     .simpleItem()
                     .register();
 

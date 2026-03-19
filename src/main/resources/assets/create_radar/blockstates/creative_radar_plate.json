@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "create_radar:block/creative_radar_plate",
+      "x": 180
+    },
+    "facing=east": {
+      "model": "create_radar:block/creative_radar_plate",
+      "x": 90,
+      "y": 270
+    },
+    "facing=north": {
+      "model": "create_radar:block/creative_radar_plate",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south": {
+      "model": "create_radar:block/creative_radar_plate",
+      "x": 90
+    },
+    "facing=up": {
+      "model": "create_radar:block/creative_radar_plate"
+    },
+    "facing=west": {
+      "model": "create_radar:block/creative_radar_plate",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

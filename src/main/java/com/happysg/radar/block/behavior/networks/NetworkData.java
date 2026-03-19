@@ -18,6 +18,8 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.util.*;
+import java.util.Map;
+import java.util.Set;
 
 public class NetworkData extends PersistentState {
 
@@ -177,15 +179,124 @@ public class NetworkData extends PersistentState {
         return DetectionConfig.DEFAULT.toTag();
     }
 
+    public Group getOrCreateGroup(RegistryKey<World> dim, BlockPos filtererPos) {
+        String key = filtererKey(new FilterKey(dim, filtererPos));
+        return groupsByFilterer.computeIfAbsent(key, k -> new Group(new FilterKey(dim, filtererPos)));
+    }
+
+    public void setRadarPos(RegistryKey<World> dim, BlockPos filtererPos, @Nullable BlockPos radarPos) {
+        Group g = getOrCreateGroup(dim, filtererPos);
+        g.radarPos = radarPos;
+        if (radarPos != null) {
+            endpointToFilterer.put(posKey(dim, radarPos), filtererKey(new FilterKey(dim, filtererPos)));
+        }
+        markDirty();
+    }
+
+    public void addMonitorEndpoint(RegistryKey<World> dim, BlockPos filtererPos, BlockPos monitorPos) {
+        Group g = getOrCreateGroup(dim, filtererPos);
+        g.monitorEndpoints.add(monitorPos);
+        endpointToFilterer.put(posKey(dim, monitorPos), filtererKey(new FilterKey(dim, filtererPos)));
+        markDirty();
+    }
+
+    public void removeMonitorEndpoint(RegistryKey<World> dim, BlockPos filtererPos, BlockPos monitorPos) {
+        Group g = getGroup(dim, filtererPos);
+        if (g != null) g.monitorEndpoints.remove(monitorPos);
+        endpointToFilterer.remove(posKey(dim, monitorPos));
+        markDirty();
+    }
+
+    public void dissolveNetworkForBrokenController(ServerWorld level, BlockPos filtererPos) {
+        RegistryKey<World> dim = level.getRegistryKey();
+        String key = filtererKey(new FilterKey(dim, filtererPos));
+        Group g = groupsByFilterer.remove(key);
+        if (g == null) return;
+        for (BlockPos ep : g.monitorEndpoints) {
+            endpointToFilterer.remove(posKey(dim, ep));
+            notifyNodeDisconnected(level, ep);
+        }
+        if (g.radarPos != null) {
+            endpointToFilterer.remove(posKey(dim, g.radarPos));
+        }
+        markDirty();
+    }
+
+    public void setDetectionFilter(RegistryKey<World> dim, BlockPos filtererPos, NbtCompound detectionTag) {
+        Group g = getOrCreateGroup(dim, filtererPos);
+        g.detectionTag = detectionTag;
+        markDirty();
+    }
+
+    public String getSelectedTargetId(Group group) {
+        return group.selectedTargetId;
+    }
+
+    public void setSelectedTargetId(Group group, @Nullable String id) {
+        group.selectedTargetId = id;
+        markDirty();
+    }
+
+    public Set<BlockPos> getWeaponEndpoints(Group group) {
+        return group.weaponEndpoints;
+    }
+
     public static NetworkData load(NbtCompound tag) {
         NetworkData data = new NetworkData();
-        // Simplified: data loading can be expanded
+        if (tag.contains("groups", NbtElement.LIST_TYPE)) {
+            NbtList groups = tag.getList("groups", NbtElement.COMPOUND_TYPE);
+            for (int i = 0; i < groups.size(); i++) {
+                NbtCompound g = groups.getCompound(i);
+                String keyStr = g.getString("key");
+                try {
+                    String[] parts = keyStr.split("@");
+                    String dimStr = parts[0];
+                    String[] coords = parts[1].split(",");
+                    BlockPos filtererPos = new BlockPos(Integer.parseInt(coords[0]), Integer.parseInt(coords[1]), Integer.parseInt(coords[2]));
+                    RegistryKey<World> dim = RegistryKey.of(RegistryKeys.WORLD, new Identifier(dimStr));
+                    FilterKey fk = new FilterKey(dim, filtererPos);
+                    Group group = new Group(fk);
+                    if (g.contains("radarPos", NbtElement.COMPOUND_TYPE))
+                        group.radarPos = NbtHelper.toBlockPos(g.getCompound("radarPos"));
+                    if (g.contains("selectedTargetId", NbtElement.STRING_TYPE))
+                        group.selectedTargetId = g.getString("selectedTargetId");
+                    if (g.contains("detectionTag", NbtElement.COMPOUND_TYPE))
+                        group.detectionTag = g.getCompound("detectionTag");
+                    if (g.contains("monitorEndpoints", NbtElement.LIST_TYPE)) {
+                        NbtList eps = g.getList("monitorEndpoints", NbtElement.COMPOUND_TYPE);
+                        for (int j = 0; j < eps.size(); j++) {
+                            BlockPos ep = NbtHelper.toBlockPos(eps.getCompound(j));
+                            group.monitorEndpoints.add(ep);
+                            data.endpointToFilterer.put(posKey(dim, ep), keyStr);
+                        }
+                    }
+                    if (group.radarPos != null)
+                        data.endpointToFilterer.put(posKey(dim, group.radarPos), keyStr);
+                    data.groupsByFilterer.put(keyStr, group);
+                } catch (Exception e) {
+                    LOGGER.warn("Failed to load network group: {}", keyStr, e);
+                }
+            }
+        }
         return data;
     }
 
     @Override
     public NbtCompound writeNbt(NbtCompound tag) {
-        // Simplified: persistence can be expanded
+        NbtList groups = new NbtList();
+        for (Map.Entry<String, Group> entry : groupsByFilterer.entrySet()) {
+            Group g = entry.getValue();
+            NbtCompound gc = new NbtCompound();
+            gc.putString("key", entry.getKey());
+            if (g.radarPos != null) gc.put("radarPos", NbtHelper.fromBlockPos(g.radarPos));
+            if (g.selectedTargetId != null) gc.putString("selectedTargetId", g.selectedTargetId);
+            gc.put("detectionTag", g.detectionTag);
+            NbtList eps = new NbtList();
+            for (BlockPos ep : g.monitorEndpoints) eps.add(NbtHelper.fromBlockPos(ep));
+            gc.put("monitorEndpoints", eps);
+            groups.add(gc);
+        }
+        tag.put("groups", groups);
         return tag;
     }
 }

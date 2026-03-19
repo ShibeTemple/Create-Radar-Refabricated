@@ -6,6 +6,8 @@ import com.happysg.radar.config.RadarConfig;
 import com.happysg.radar.registry.ModBlockEntityTypes;
 import com.happysg.radar.registry.ModBlocks;
 import com.happysg.radar.registry.ModContraptionTypes;
+import com.happysg.radar.registry.ModCreativeTabs;
+import com.happysg.radar.registry.ModItems;
 import com.simibubi.create.foundation.data.CreateRegistrate;
 import com.simibubi.create.foundation.item.ItemDescription;
 import com.simibubi.create.foundation.item.KineticStats;
@@ -31,8 +33,11 @@ public class CreateRadar implements ModInitializer {
     public void onInitialize() {
         LOGGER.info("Initializing Create Radar (Fabric)!");
 
+        ModCreativeTabs.register();
         ModBlocks.register();
+        ModItems.register();
         ModBlockEntityTypes.register();
+        REGISTRATE.register();
         RadarConfig.register(MODID);
 
         ModContraptionTypes.register();

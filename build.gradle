@@ -30,6 +30,10 @@ repositories {
         url = "https://maven.realrobotix.me/master/"
         content { includeGroup "com.rbasamoyai" }
     }
+
+    // REI (Roughly Enough Items)
+    maven { url 'https://maven.shedaniel.me/' }
+    maven { url 'https://maven.architectury.dev/' }
 }
 
 dependencies {
@@ -45,6 +49,9 @@ dependencies {
 
     // Create Big Cannons (optional compat, compile-only)
     modCompileOnly fileTree(dir: 'libs', include: '*.jar')
+
+    // REI - runtime only for testing
+    modRuntimeOnly "me.shedaniel:RoughlyEnoughItems-fabric:${rei_version}"
 }
 
 processResources {

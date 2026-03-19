@@ -4,6 +4,7 @@ import com.happysg.radar.config.RadarConfig;
 import com.happysg.radar.registry.ModBlocks;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.HorizontalFacingBlock;
+import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Direction;
@@ -97,7 +98,33 @@ public class MonitorMultiBlockHelper {
     }
 
     public static int getSize(World level, BlockPos pos) {
-        if (!(level.getBlockEntity(pos) instanceof MonitorBlockEntity monitor)) return 1;
-        return monitor.getSize();
+        if (!level.getBlockState(pos).isOf(ModBlocks.MONITOR.get()))
+            return 0;
+        Direction facing = level.getBlockState(pos).get(HorizontalFacingBlock.FACING);
+        int potentialsize = 0;
+        for (int i = 0; i < RadarConfig.server().monitorMaxSize.get(); i++) {
+            boolean valid = true;
+            for (BlockPos p : BlockPos.iterate(pos, pos.up(i).offset(facing.rotateYClockwise(), i))) {
+                if (!level.getBlockState(p).isOf(ModBlocks.MONITOR.get())) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (valid)
+                potentialsize = i + 1;
+            else
+                break;
+        }
+        if (potentialsize == 1)
+            return 1;
+
+        for (int i = 0; i < potentialsize; i++) {
+            for (int j = 0; j < potentialsize; j++) {
+                BlockEntity be = level.getBlockEntity(pos.up(i).offset(facing.rotateYClockwise(), j));
+                if (!(be instanceof MonitorBlockEntity monitor && monitor.getSize() < potentialsize))
+                    return Math.max(1, Math.min(i, j));
+            }
+        }
+        return potentialsize;
     }
 }
