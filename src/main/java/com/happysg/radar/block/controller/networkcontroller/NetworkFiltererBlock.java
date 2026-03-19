@@ -11,6 +11,7 @@ import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtHelper;
 import net.minecraft.server.world.ServerWorld;
@@ -32,6 +33,11 @@ public class NetworkFiltererBlock extends WrenchableDirectionalBlock implements 
 
     public NetworkFiltererBlock(Settings properties) {
         super(properties);
+    }
+
+    @Override
+    public BlockState getPlacementState(ItemPlacementContext ctx) {
+        return getDefaultState().with(FACING, ctx.getSide());
     }
 
     @Override
@@ -96,6 +102,27 @@ public class NetworkFiltererBlock extends WrenchableDirectionalBlock implements 
                 }
                 return ActionResult.success(world.isClient);
             }
+        }
+
+        // Empty hand (not sneaking): toggle link mode
+        if (held.isEmpty() && !player.isSneaking()) {
+            if (!world.isClient) {
+                if (NetworkFiltererBlockEntity.hasLinkSession(player.getUuid()) &&
+                        pos.equals(NetworkFiltererBlockEntity.getLinkSession(player.getUuid()))) {
+                    NetworkFiltererBlockEntity.clearLinkSession(player.getUuid());
+                    player.sendMessage(Text.literal("Link mode deactivated.").formatted(Formatting.YELLOW), true);
+                } else {
+                    NetworkFiltererBlockEntity.setLinkSession(player.getUuid(), pos);
+                    BlockEntity be = world.getBlockEntity(pos);
+                    if (be instanceof NetworkFiltererBlockEntity filterer) {
+                        String radarStr = filterer.getLinkedRadarPos() != null
+                                ? filterer.getLinkedRadarPos().toShortString() : "none";
+                        int monitors = filterer.getLinkedMonitorCount();
+                        player.sendMessage(Text.literal("Link mode active — right-click a Radar Bearing or Monitor. (Radar: " + radarStr + ", Monitors: " + monitors + ")").formatted(Formatting.AQUA), true);
+                    }
+                }
+            }
+            return ActionResult.success(world.isClient);
         }
 
         // Empty hand + sneaking: extract first filled slot

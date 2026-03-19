@@ -72,6 +72,22 @@ public class MonitorBlock extends HorizontalFacingBlock implements IBE<MonitorBl
         if (!player.getMainHandStack().isEmpty() || hand == Hand.OFF_HAND)
             return ActionResult.PASS;
 
+        // Link mode: connect this monitor to the active network controller session
+        if (!level.isClient && level instanceof net.minecraft.server.world.ServerWorld sl) {
+            if (com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity.hasLinkSession(player.getUuid())) {
+                net.minecraft.util.math.BlockPos filtererPos = com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity.getLinkSession(player.getUuid());
+                net.minecraft.block.entity.BlockEntity fbe = level.getBlockEntity(filtererPos);
+                if (fbe instanceof com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity filterer) {
+                    BlockPos controllerPos = pos;
+                    if (level.getBlockEntity(pos) instanceof MonitorBlockEntity monitorBe)
+                        controllerPos = monitorBe.getControllerPos();
+                    filterer.linkMonitor(sl, controllerPos);
+                    player.sendMessage(net.minecraft.text.Text.literal("Monitor linked to Network Controller!").formatted(net.minecraft.util.Formatting.GREEN), true);
+                    return ActionResult.SUCCESS;
+                }
+            }
+        }
+
         if (RadarConfig.client().useGuiByDefault.get()) {
             BlockEntity be = level.getBlockEntity(pos);
             if (be instanceof MonitorBlockEntity monitor) {
