@@ -1,0 +1,10 @@
+package com.happysg.radar.registry;
+
+import com.simibubi.create.AllShapes;
+import net.createmod.catnip.math.VoxelShaper;
+import net.minecraft.block.Block;
+
+public class ModShapes {
+    public static final VoxelShaper RADAR_DISH = new AllShapes.Builder(Block.createCuboidShape(0, 7, 0, 16, 9, 16)).forDirectional();
+    public static final VoxelShaper RADAR_PLATE = new AllShapes.Builder(Block.createCuboidShape(0, 4, 0, 16, 12, 16)).forDirectional();
+}

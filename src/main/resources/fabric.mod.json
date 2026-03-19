@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "create_radar",
+  "version": "${version}",
+  "name": "Create: Radars (Fabric)",
+  "description": "Welcome to Create Radars, a mod offering a variety of tools and blocks for Surveillance, Detection, and Controlling Weapons.",
+  "authors": [
+    "Aycer",
+    "HappySG",
+    "CeoOfGoogle",
+    "Kipti"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/create_radar/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.happysg.radar.CreateRadar"
+    ]
+  },
+  "mixins": [
+    "create_radar.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.0",
+    "fabric-api": "*",
+    "minecraft": "~1.20.1",
+    "create": "*"
+  }
+}
