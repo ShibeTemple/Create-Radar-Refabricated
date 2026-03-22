@@ -151,13 +151,8 @@ public class RadarScanningBlockBehavior extends BlockEntityBehaviour {
             if (!entity.isAlive()) radarTracks.remove(entity.getUuidAsString());
         }
 
-        List<String> toRemove = new ArrayList<>();
         long currentTime = blockEntity.getWorld().getTime();
-        for (RadarTrack track : radarTracks.values()) {
-            if (currentTime - track.scannedTime() > trackExpiration)
-                toRemove.add(track.id());
-        }
-        toRemove.forEach(radarTracks::remove);
+        radarTracks.values().removeIf(track -> currentTime - track.scannedTime() > trackExpiration);
 
         scannedProjectiles.removeIf(p -> {
             boolean dead = !p.isAlive();

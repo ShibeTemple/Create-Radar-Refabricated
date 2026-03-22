@@ -48,6 +48,9 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
     private @Nullable String lastSentSelectedEntity = null;
     private long lastForcedSendTime = -20;
 
+    // Cached network group reference — avoids posKey string allocation + parseBlockPos every 5 ticks.
+    private @Nullable NetworkData.Group cachedNetworkGroup = null;
+
     public MonitorBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
     }
@@ -97,6 +100,7 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
         this.radarPos = null;
         this.radar = null;
         this.controller = null;
+        this.cachedNetworkGroup = null;
         markDirty();
         sendData();
         if (world != null) {
@@ -201,6 +205,7 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
         this.radarPos = null;
         this.radar = null;
         this.activetrack = null;
+        this.cachedNetworkGroup = null;
         markDirty();
         sendData();
     }
@@ -230,14 +235,17 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
 
     @Nullable
     private NetworkData.Group getNetworkGroup(ServerWorld sl) {
-        NetworkData data = NetworkData.get(sl);
         BlockPos endpointPos = getControllerPos();
+        // Fast path: skip string key allocation if cached group is still valid.
+        if (cachedNetworkGroup != null && cachedNetworkGroup.monitorEndpoints.contains(endpointPos)) {
+            return cachedNetworkGroup;
+        }
+        NetworkData data = NetworkData.get(sl);
         BlockPos filtererPos = data.getFiltererForEndpoint(sl.getRegistryKey(), endpointPos);
-        if (filtererPos == null) return null;
+        if (filtererPos == null) { cachedNetworkGroup = null; return null; }
         NetworkData.Group g = data.getGroup(sl.getRegistryKey(), filtererPos);
-        if (g == null) return null;
-        if (g.monitorEndpoints.isEmpty()) return null;
-        if (!g.monitorEndpoints.contains(endpointPos)) return null;
+        if (g == null || !g.monitorEndpoints.contains(endpointPos)) { cachedNetworkGroup = null; return null; }
+        cachedNetworkGroup = g;
         return g;
     }
 

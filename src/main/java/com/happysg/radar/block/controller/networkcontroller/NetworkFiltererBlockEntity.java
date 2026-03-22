@@ -57,7 +57,7 @@ public class NetworkFiltererBlockEntity extends SmartBlockEntity {
             } else if (tag.contains("detection", NbtElement.COMPOUND_TYPE)) {
                 det = tag.getCompound("detection");
             }
-            if (det != null) {
+            if (det != null && !det.equals(group.detectionTag)) {
                 data.setDetectionFilter(dim, pos, det);
             }
         }

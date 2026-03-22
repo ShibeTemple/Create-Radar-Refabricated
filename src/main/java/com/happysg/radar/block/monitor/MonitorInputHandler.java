@@ -59,6 +59,9 @@ public class MonitorInputHandler {
         float range = controller.getRange();
         float sizeAdj = size == 1 ? 0.5f : ((size - 1) / 2f);
         if (size == 2) sizeAdj = 0.75f;
+        // Tracks are rendered at TRACK_POSITION_SCALE (0.75) of their actual position,
+        // so we must account for that when projecting back to world coordinates.
+        sizeAdj *= 0.75f;
 
         Vec3d selected = radarPos.add(relative.multiply(range / sizeAdj));
 

@@ -26,7 +26,6 @@ import org.joml.Matrix4f;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity> {
 
@@ -173,9 +172,9 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
 
     private void renderRadarTracks(IRadar radar, MonitorBlockEntity monitor, MatrixStack ms,
                                    VertexConsumerProvider bufferSource) {
-        AtomicInteger depthCounter = new AtomicInteger(0);
+        int depthCounter = 0;
         for (RadarTrack track : monitor.getTracks()) {
-            renderTrack(track, monitor, radar, ms, bufferSource, depthCounter.getAndIncrement());
+            renderTrack(track, monitor, radar, ms, bufferSource, depthCounter++);
         }
     }
 
