@@ -1,6 +1,7 @@
 package com.happysg.radar.block.controller.networkcontroller;
 
 import com.happysg.radar.block.behavior.networks.NetworkData;
+import com.happysg.radar.block.behavior.networks.config.DetectionConfig;
 import com.happysg.radar.registry.ModBlockEntityTypes;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
@@ -45,29 +46,33 @@ public class NetworkFiltererBlockEntity extends SmartBlockEntity {
         NetworkData data = NetworkData.get(sl);
         NetworkData.Group group = data.getOrCreateGroup(dim, pos);
 
-        // Slot 0 — detection filter (entity category toggles)
-        NbtCompound det = readDetectionTag(inventory[0]);
+        // Slot 0 — detection filter (entity category toggles).
+        // If the slot is empty, revert to DEFAULT so removing the item resets the monitor.
+        NbtCompound rawDet = readDetectionTag(inventory[0]);
+        NbtCompound det = rawDet != null ? rawDet.copy() : DetectionConfig.DEFAULT.toTag();
 
-        // Slot 1 — identification filter (player/ship friend-foe lists)
-        // Merge playerList and vs2Ships into the detection tag so that
-        // DetectionConfig.fromTag() picks them up for colour-coding tracks.
+        // Slot 1 — identification filter (player/ship friend-foe lists).
+        // Merge lists into det when present; clear them (revert to no lists) when absent.
         NbtCompound identNbt = getItemNbt(inventory[1]);
         if (identNbt != null) {
-            if (det == null) det = new NbtCompound();
             if (identNbt.contains("playerList", NbtElement.COMPOUND_TYPE))
                 det.put("playerList", identNbt.getCompound("playerList"));
             if (identNbt.contains("vs2Ships", NbtElement.COMPOUND_TYPE))
                 det.put("vs2Ships", identNbt.getCompound("vs2Ships"));
+        } else {
+            det.remove("playerList");
+            det.remove("vs2Ships");
         }
 
-        if (det != null && !det.equals(group.detectionTag)) {
+        if (!det.equals(group.detectionTag)) {
             data.setDetectionFilter(dim, pos, det);
         }
 
-        // Slot 2 — targeting filter (auto-target settings)
+        // Slot 2 — targeting filter. Revert to empty tag when slot is empty.
         NbtCompound targetingNbt = readTargetingTag(inventory[2]);
-        if (targetingNbt != null && !targetingNbt.equals(group.targetingTag)) {
-            group.targetingTag = targetingNbt;
+        NbtCompound targeting = targetingNbt != null ? targetingNbt : new NbtCompound();
+        if (!targeting.equals(group.targetingTag)) {
+            group.targetingTag = targeting;
             data.markDirty();
         }
 
