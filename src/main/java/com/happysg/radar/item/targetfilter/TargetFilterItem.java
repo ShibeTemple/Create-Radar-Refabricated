@@ -1,8 +1,5 @@
 package com.happysg.radar.item.targetfilter;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -18,13 +15,7 @@ public class TargetFilterItem extends Item {
 
     @Override
     public TypedActionResult<ItemStack> use(World world, PlayerEntity player, Hand hand) {
-        if (!world.isClient) return TypedActionResult.pass(player.getStackInHand(hand));
-        openScreen();
-        return TypedActionResult.success(player.getStackInHand(hand));
-    }
-
-    @Environment(EnvType.CLIENT)
-    private static void openScreen() {
-        MinecraftClient.getInstance().setScreen(new AutoTargetScreen());
+        // AutoTargetScreen not yet implemented — do nothing until it's ready
+        return TypedActionResult.pass(player.getStackInHand(hand));
     }
 }

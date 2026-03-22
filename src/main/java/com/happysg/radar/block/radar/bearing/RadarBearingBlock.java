@@ -61,19 +61,6 @@ public class RadarBearingBlock extends BearingBlock implements IBE<RadarBearingB
         if (!player.getMainHandStack().isEmpty())
             return ActionResult.PASS;
 
-        // Link mode: player has an active link session
-        if (!level.isClient && level instanceof net.minecraft.server.world.ServerWorld sl) {
-            if (com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity.hasLinkSession(player.getUuid())) {
-                net.minecraft.util.math.BlockPos filtererPos = com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity.getLinkSession(player.getUuid());
-                net.minecraft.block.entity.BlockEntity fbe = level.getBlockEntity(filtererPos);
-                if (fbe instanceof com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity filterer) {
-                    filterer.linkRadar(sl, pos);
-                    player.sendMessage(net.minecraft.text.Text.literal("Radar Bearing linked to Network Controller!").formatted(net.minecraft.util.Formatting.GREEN), true);
-                    return ActionResult.SUCCESS;
-                }
-            }
-        }
-
         if (!level.isClient) {
             BlockEntity be = level.getBlockEntity(pos);
             if (be instanceof RadarBearingBlockEntity radar) {

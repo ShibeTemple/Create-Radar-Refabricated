@@ -3,6 +3,7 @@ package com.happysg.radar.registry;
 import com.happysg.radar.CreateRadar;
 import com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity;
 import com.happysg.radar.block.monitor.MonitorBlockEntity;
+import com.happysg.radar.block.monitor.MonitorRenderer;
 import com.happysg.radar.block.radar.bearing.RadarBearingBlockEntity;
 import com.simibubi.create.content.contraptions.bearing.BearingRenderer;
 import com.simibubi.create.content.contraptions.bearing.BearingVisual;
@@ -15,6 +16,7 @@ public class ModBlockEntityTypes {
     public static final BlockEntityEntry<MonitorBlockEntity> MONITOR = REGISTRATE
             .blockEntity("monitor", MonitorBlockEntity::new)
             .validBlocks(ModBlocks.MONITOR)
+            .renderer(() -> MonitorRenderer::new)
             .register();
 
     public static final BlockEntityEntry<RadarBearingBlockEntity> RADAR_BEARING = REGISTRATE

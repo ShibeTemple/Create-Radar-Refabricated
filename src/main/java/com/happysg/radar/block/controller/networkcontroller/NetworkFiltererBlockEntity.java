@@ -18,28 +18,8 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-import java.util.UUID;
 
 public class NetworkFiltererBlockEntity extends SmartBlockEntity {
-
-    // Server-side link mode: maps player UUID → filterer BlockPos
-    private static final Map<UUID, BlockPos> LINK_SESSIONS = new HashMap<>();
-
-    public static void setLinkSession(UUID playerId, BlockPos filtererPos) {
-        LINK_SESSIONS.put(playerId, filtererPos);
-    }
-
-    public static boolean hasLinkSession(UUID playerId) {
-        return LINK_SESSIONS.containsKey(playerId);
-    }
-
-    public static BlockPos getLinkSession(UUID playerId) {
-        return LINK_SESSIONS.get(playerId);
-    }
-
-    public static void clearLinkSession(UUID playerId) {
-        LINK_SESSIONS.remove(playerId);
-    }
 
     // 3 filter slots: 0=detection, 1=identification, 2=targeting
     private final ItemStack[] inventory = new ItemStack[]{ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY};
@@ -95,7 +75,6 @@ public class NetworkFiltererBlockEntity extends SmartBlockEntity {
         RegistryKey<World> dim = sl.getRegistryKey();
         NetworkData data = NetworkData.get(sl);
 
-        // Remove old radar link
         if (linkedRadarPos != null) data.onEndpointRemoved(sl, linkedRadarPos);
 
         linkedRadarPos = radarPos;

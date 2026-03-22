@@ -1,5 +1,8 @@
 package com.happysg.radar.block.controller.networkcontroller;
 
+import com.happysg.radar.block.monitor.MonitorBlock;
+import com.happysg.radar.block.monitor.MonitorBlockEntity;
+import com.happysg.radar.block.radar.bearing.RadarBearingBlock;
 import com.happysg.radar.registry.ModBlockEntityTypes;
 import com.happysg.radar.registry.ModItems;
 import com.simibubi.create.AllShapes;
@@ -13,6 +16,7 @@ import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtHelper;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
@@ -23,6 +27,7 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.world.BlockView;
 import net.minecraft.block.ShapeContext;
@@ -66,18 +71,61 @@ public class NetworkFiltererBlock extends WrenchableDirectionalBlock implements 
 
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
+        if (hand == Hand.OFF_HAND) return ActionResult.PASS;
         ItemStack held = player.getStackInHand(hand);
 
-        // Binoculars: store filterer position
+        // ── Binoculars: two-step pairing ────────────────────────────────────────
+        // Step 1: click radar-side controller → auto-detect adjacent radar bearing,
+        //         store this filterer pos in binoculars NBT as "radarFiltererPos".
+        // Step 2: click monitor-side controller → auto-detect adjacent monitor,
+        //         copy radar pos from the stored filterer, complete the pairing.
         if (held.isOf(ModItems.BINOCULARS.get())) {
-            if (!world.isClient) {
-                held.getOrCreateNbt().put("filtererPos", NbtHelper.fromBlockPos(pos));
-                player.sendMessage(Text.translatable("create_radar.binoculars.paired").formatted(Formatting.BLUE), true);
+            if (!world.isClient && world instanceof ServerWorld sl) {
+                BlockEntity be = world.getBlockEntity(pos);
+                if (be instanceof NetworkFiltererBlockEntity filterer) {
+                    NbtCompound nbt = held.getOrCreateNbt();
+
+                    if (nbt.contains("radarFiltererPos")) {
+                        // ── Step 2: monitor-side controller ──────────────────────
+                        BlockPos radarFiltPos = NbtHelper.toBlockPos(nbt.getCompound("radarFiltererPos"));
+                        BlockEntity radarFiltBe = world.getBlockEntity(radarFiltPos);
+
+                        if (radarFiltBe instanceof NetworkFiltererBlockEntity radarFilt) {
+                            autoLinkAdjacentMonitor(sl, filterer, pos, world);
+
+                            BlockPos radarPos = radarFilt.getLinkedRadarPos();
+                            if (radarPos != null) {
+                                filterer.linkRadar(sl, radarPos);
+                                player.sendMessage(Text.literal(
+                                        "Paired! Monitor will now display radar data.").formatted(Formatting.GREEN), true);
+                            } else {
+                                player.sendMessage(Text.literal(
+                                        "Radar controller has no radar bearing nearby — place it adjacent to the bearing first.").formatted(Formatting.YELLOW), true);
+                            }
+                        }
+
+                        nbt.remove("radarFiltererPos");
+                        if (nbt.isEmpty()) held.setNbt(null);
+
+                    } else {
+                        // ── Step 1: radar-side controller ─────────────────────────
+                        boolean found = autoLinkAdjacentRadar(sl, filterer, pos, world);
+                        held.getOrCreateNbt().put("radarFiltererPos", NbtHelper.fromBlockPos(pos));
+
+                        if (found) {
+                            player.sendMessage(Text.literal(
+                                    "Radar controller selected. Right-click the monitor's network controller to pair.").formatted(Formatting.AQUA), true);
+                        } else {
+                            player.sendMessage(Text.literal(
+                                    "No radar bearing adjacent — place this controller next to the bearing, then retry.").formatted(Formatting.YELLOW), true);
+                        }
+                    }
+                }
             }
             return ActionResult.success(world.isClient);
         }
 
-        // Filter items: insert into appropriate slot
+        // ── Filter items: insert into appropriate slot ───────────────────────────
         if (!held.isEmpty()) {
             int slot = -1;
             if (held.isOf(ModItems.RADAR_FILTER_ITEM.get())) slot = 0;
@@ -104,28 +152,7 @@ public class NetworkFiltererBlock extends WrenchableDirectionalBlock implements 
             }
         }
 
-        // Empty hand (not sneaking): toggle link mode
-        if (held.isEmpty() && !player.isSneaking()) {
-            if (!world.isClient) {
-                if (NetworkFiltererBlockEntity.hasLinkSession(player.getUuid()) &&
-                        pos.equals(NetworkFiltererBlockEntity.getLinkSession(player.getUuid()))) {
-                    NetworkFiltererBlockEntity.clearLinkSession(player.getUuid());
-                    player.sendMessage(Text.literal("Link mode deactivated.").formatted(Formatting.YELLOW), true);
-                } else {
-                    NetworkFiltererBlockEntity.setLinkSession(player.getUuid(), pos);
-                    BlockEntity be = world.getBlockEntity(pos);
-                    if (be instanceof NetworkFiltererBlockEntity filterer) {
-                        String radarStr = filterer.getLinkedRadarPos() != null
-                                ? filterer.getLinkedRadarPos().toShortString() : "none";
-                        int monitors = filterer.getLinkedMonitorCount();
-                        player.sendMessage(Text.literal("Link mode active — right-click a Radar Bearing or Monitor. (Radar: " + radarStr + ", Monitors: " + monitors + ")").formatted(Formatting.AQUA), true);
-                    }
-                }
-            }
-            return ActionResult.success(world.isClient);
-        }
-
-        // Empty hand + sneaking: extract first filled slot
+        // ── Sneak + empty hand: extract first filled filter slot ─────────────────
         if (held.isEmpty() && player.isSneaking()) {
             if (!world.isClient) {
                 BlockEntity be = world.getBlockEntity(pos);
@@ -145,6 +172,34 @@ public class NetworkFiltererBlock extends WrenchableDirectionalBlock implements 
         }
 
         return ActionResult.PASS;
+    }
+
+    /** Searches the 6 adjacent blocks for a radar bearing; links it if found. */
+    private static boolean autoLinkAdjacentRadar(ServerWorld sl, NetworkFiltererBlockEntity filterer,
+                                                  BlockPos pos, World world) {
+        for (Direction dir : Direction.values()) {
+            BlockPos neighbor = pos.offset(dir);
+            if (world.getBlockState(neighbor).getBlock() instanceof RadarBearingBlock) {
+                filterer.linkRadar(sl, neighbor);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Searches the 6 adjacent blocks for a monitor; links its controller if found. */
+    private static void autoLinkAdjacentMonitor(ServerWorld sl, NetworkFiltererBlockEntity filterer,
+                                                 BlockPos pos, World world) {
+        for (Direction dir : Direction.values()) {
+            BlockPos neighbor = pos.offset(dir);
+            if (world.getBlockState(neighbor).getBlock() instanceof MonitorBlock) {
+                BlockPos controllerPos = neighbor;
+                if (world.getBlockEntity(neighbor) instanceof MonitorBlockEntity monBe)
+                    controllerPos = monBe.getControllerPos();
+                filterer.linkMonitor(sl, controllerPos);
+                return;
+            }
+        }
     }
 
     @Override
