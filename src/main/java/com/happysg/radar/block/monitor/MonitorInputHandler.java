@@ -93,12 +93,15 @@ public class MonitorInputHandler {
         return ActionResult.success(false);
     }
 
+    private static int hoverThrottleCounter = 0;
+
     /**
      * Client-side: called each tick to update the hovered entity based on where
-     * the player is looking on the monitor face.
+     * the player is looking on the monitor face. Throttled to run every 3 ticks.
      */
     @Environment(EnvType.CLIENT)
     public static void monitorPlayerHovering(MinecraftClient mc) {
+        if (++hoverThrottleCounter % 3 != 0) return;
         if (mc.player == null || mc.world == null) return;
 
         HitResult result = mc.player.raycast(5.0, 0.0f, false);

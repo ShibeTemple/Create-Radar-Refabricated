@@ -23,7 +23,6 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
 import javax.annotation.Nullable;
@@ -40,6 +39,9 @@ public class RadarBearingBlockEntity extends MechanicalBearingBlockEntity implem
     private RadarScanningBlockBehavior scanningBehavior;
     private Collection<RadarTrack> networkFilteredTracks = List.of();
     private long lastFilterTick = -1;
+    // Cached receiverAngle — recomputed only when receiverFacing changes.
+    private Direction cachedReceiverFacingForAngle = null;
+    private float cachedReceiverAngle = 0f;
 
     public RadarBearingBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -92,9 +94,12 @@ public class RadarBearingBlockEntity extends MechanicalBearingBlockEntity implem
     }
 
     public float getGlobalAngle() {
-        Vec3d receiverVector = new Vec3d(receiverFacing.getOffsetX(), receiverFacing.getOffsetY(), receiverFacing.getOffsetZ());
-        float receiverAngle = (float) Math.toDegrees(Math.atan2(receiverVector.x, receiverVector.z));
-        return ((receiverAngle + angle + 360) + 180) % 360;
+        if (receiverFacing != cachedReceiverFacingForAngle) {
+            cachedReceiverFacingForAngle = receiverFacing;
+            cachedReceiverAngle = (float) Math.toDegrees(
+                    Math.atan2(receiverFacing.getOffsetX(), receiverFacing.getOffsetZ()));
+        }
+        return ((cachedReceiverAngle + angle + 360) + 180) % 360;
     }
 
     public float getAngularSpeed() {

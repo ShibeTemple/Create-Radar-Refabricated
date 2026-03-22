@@ -41,6 +41,12 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
     private BlockPos lastKnownPos = BlockPos.ORIGIN;
     public final List<Box> safeZones = new ArrayList<>();
 
+    // Dirty-flag tracking to avoid sending data every 5 ticks when nothing changed.
+    private int lastSentTrackCount = -1;
+    private @Nullable BlockPos lastSentRadarPos = null;
+    private @Nullable String lastSentSelectedEntity = null;
+    private long lastForcedSendTime = -20;
+
     public MonitorBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
     }
@@ -67,7 +73,7 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
                 if (controllerBe != null) {
                     controllerBe.activetrack = controllerBe.resolveActiveTrackFromCache();
                 }
-                sendData();
+                maybeSendData();
             }
         }
 
@@ -160,6 +166,27 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
                 return track;
         }
         return null;
+    }
+
+    /**
+     * Sends data to clients only when track count, radarPos, or selectedEntity changed,
+     * or at least every 20 ticks so track positions stay reasonably fresh.
+     */
+    private void maybeSendData() {
+        if (world == null) return;
+        long time = world.getTime();
+        int trackCount = cachedTracks.size();
+        boolean changed = trackCount != lastSentTrackCount
+                || !Objects.equals(radarPos, lastSentRadarPos)
+                || !Objects.equals(selectedEntity, lastSentSelectedEntity)
+                || (time - lastForcedSendTime) >= 20;
+        if (changed) {
+            lastSentTrackCount = trackCount;
+            lastSentRadarPos = radarPos;
+            lastSentSelectedEntity = selectedEntity;
+            lastForcedSendTime = time;
+            sendData();
+        }
     }
 
     /** Resets this block to a standalone single monitor with no network connection. */

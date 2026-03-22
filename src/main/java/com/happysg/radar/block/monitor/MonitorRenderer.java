@@ -6,7 +6,6 @@ import com.happysg.radar.block.radar.track.RadarTrack;
 import com.happysg.radar.block.radar.track.TrackCategory;
 import com.happysg.radar.compat.vs2.PhysicsHandler;
 import com.happysg.radar.config.RadarConfig;
-import com.happysg.radar.registry.ModRenderTypes;
 import com.simibubi.create.foundation.blockEntity.renderer.SmartBlockEntityRenderer;
 import net.createmod.catnip.theme.Color;
 import net.minecraft.client.MinecraftClient;
@@ -286,7 +285,7 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
     }
 
     private VertexConsumer getBuffer(VertexConsumerProvider bufferSource, MonitorSprite sprite) {
-        return bufferSource.getBuffer(ModRenderTypes.polygonOffset(sprite.getTexture()));
+        return bufferSource.getBuffer(sprite.getRenderLayer());
     }
 
     private void renderVertices(VertexConsumer buffer, Matrix4f m, Matrix3f n,
@@ -317,8 +316,7 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
                              VertexConsumerProvider bufferSource) {
         if (!radar.isRunning()) return;
 
-        VertexConsumer buffer = bufferSource.getBuffer(
-                ModRenderTypes.polygonOffset(MonitorSprite.RADAR_SWEEP.getTexture()));
+        VertexConsumer buffer = bufferSource.getBuffer(MonitorSprite.RADAR_SWEEP.getRenderLayer());
         Matrix4f m = ms.peek().getPositionMatrix();
         Matrix3f n = ms.peek().getNormalMatrix();
         Color color = new Color(RadarConfig.client().groundRadarColor.get());
