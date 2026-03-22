@@ -95,13 +95,19 @@ public class RadarBearingBlockEntity extends MechanicalBearingBlockEntity implem
         if (!RadarConfig.server().gearRadarBearingSpeed.get())
             return super.getAngularSpeed();
 
-        float speed = convertToAngular(getSpeed());
+        // Divide only the rotation speed by the dish-count factor — not the
+        // clientAngleDiff correction term. clientAngleDiff is a client-side
+        // catch-up value that must converge at the same rate as Create's base
+        // bearing; dividing it would make the bearing perpetually lag behind
+        // server angle and cause visible jitter/reverse-direction artifacts.
+        float divisor = 4f + getDishCount() / 10f;
+        float speed = convertToAngular(getSpeed()) / divisor;
         if (getSpeed() == 0) speed = 0;
         if (world.isClient) {
             speed *= ServerSpeedProvider.get();
             speed += clientAngleDiff / 3f;
         }
-        return speed / (4f + getDishCount() / 10);
+        return speed;
     }
 
     @Override
