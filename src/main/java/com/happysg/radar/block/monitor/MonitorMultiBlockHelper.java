@@ -1,10 +1,12 @@
 package com.happysg.radar.block.monitor;
 
+import com.happysg.radar.block.behavior.networks.NetworkData;
 import com.happysg.radar.config.RadarConfig;
 import com.happysg.radar.registry.ModBlocks;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.HorizontalFacingBlock;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Direction;
@@ -78,6 +80,12 @@ public class MonitorMultiBlockHelper {
     static void destroyMulti(BlockState pState, World pLevel, BlockPos pPos, BlockPos controllerPos, int size) {
         if (size <= 1) return;
         Direction facing = pState.get(HorizontalFacingBlock.FACING);
+
+        // Disconnect the controller endpoint from the network first
+        if (pLevel instanceof ServerWorld sl) {
+            NetworkData.get(sl).onEndpointRemoved(sl, controllerPos);
+        }
+
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
                 BlockPos target = getMonitorPos(controllerPos, facing, i, j);
@@ -85,7 +93,7 @@ public class MonitorMultiBlockHelper {
                 if (!pLevel.getBlockState(target).isOf(ModBlocks.MONITOR.get())) continue;
                 pLevel.setBlockState(target, pLevel.getBlockState(target).with(SHAPE, MonitorBlock.Shape.SINGLE));
                 if (pLevel.getBlockEntity(target) instanceof MonitorBlockEntity monitorBe) {
-                    monitorBe.setControllerPos(target, 1);
+                    monitorBe.disconnectAndReset();
                 }
             }
         }

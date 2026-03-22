@@ -91,6 +91,7 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
         this.radar = null;
         this.controller = null;
         markDirty();
+        sendData();
         if (world != null) {
             world.updateListeners(pos, getCachedState(), getCachedState(), 3);
         }
@@ -103,7 +104,14 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
 
     private void syncFromNetwork(ServerWorld sl) {
         NetworkData.Group g = getNetworkGroup(sl);
-        if (g == null) return;
+        if (g == null) {
+            if (radarPos != null) {
+                radarPos = null;
+                radar = null;
+                sendData();
+            }
+            return;
+        }
 
         BlockPos netRadar = g.radarPos;
         if (!Objects.equals(netRadar, radarPos)) {
@@ -154,8 +162,31 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
         return null;
     }
 
+    /** Resets this block to a standalone single monitor with no network connection. */
+    public void disconnectAndReset() {
+        this.controller = null;
+        this.radius = 1;
+        this.radarPos = null;
+        this.radar = null;
+        this.activetrack = null;
+        markDirty();
+        sendData();
+    }
+
+    public void setSelectedTargetServer(@Nullable String trackId) {
+        if (world == null || world.isClient) return;
+        if (!(world instanceof ServerWorld sl)) return;
+        MonitorBlockEntity controllerBe = getController();
+        if (controllerBe == null || !controllerBe.isLinked()) return;
+        NetworkData.Group g = controllerBe.getNetworkGroup(sl);
+        if (g == null) return;
+        NetworkData.get(sl).setSelectedTargetId(g, trackId);
+        controllerBe.selectedEntity = trackId;
+        controllerBe.sendData();
+    }
+
     @Nullable
-    private RadarTrack resolveActiveTrackFromCache() {
+    RadarTrack resolveActiveTrackFromCache() {
         if (selectedEntity == null) return null;
         for (RadarTrack t : cachedTracks) {
             if (t == null) continue;

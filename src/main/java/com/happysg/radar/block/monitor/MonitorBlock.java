@@ -55,7 +55,7 @@ public class MonitorBlock extends HorizontalFacingBlock implements IBE<MonitorBl
     @Override
     public void onStateReplaced(BlockState state, World level, BlockPos pos, BlockState newState, boolean moved) {
         MonitorMultiBlockHelper.onRemove(state, level, pos, newState, moved);
-        if (level instanceof ServerWorld sl) {
+        if (!state.isOf(newState.getBlock()) && level instanceof ServerWorld sl) {
             NetworkData.get(sl).onEndpointRemoved(sl, pos);
         }
         super.onStateReplaced(state, level, pos, newState, moved);
@@ -69,47 +69,12 @@ public class MonitorBlock extends HorizontalFacingBlock implements IBE<MonitorBl
 
     @Override
     public ActionResult onUse(BlockState state, World level, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
-        if (!player.getMainHandStack().isEmpty() || hand == Hand.OFF_HAND)
-            return ActionResult.PASS;
-
-        // Link mode: connect this monitor to the active network controller session
-        if (!level.isClient && level instanceof net.minecraft.server.world.ServerWorld sl) {
-            if (com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity.hasLinkSession(player.getUuid())) {
-                net.minecraft.util.math.BlockPos filtererPos = com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity.getLinkSession(player.getUuid());
-                net.minecraft.block.entity.BlockEntity fbe = level.getBlockEntity(filtererPos);
-                if (fbe instanceof com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlockEntity filterer) {
-                    BlockPos controllerPos = pos;
-                    if (level.getBlockEntity(pos) instanceof MonitorBlockEntity monitorBe)
-                        controllerPos = monitorBe.getControllerPos();
-                    filterer.linkMonitor(sl, controllerPos);
-                    player.sendMessage(net.minecraft.text.Text.literal("Monitor linked to Network Controller!").formatted(net.minecraft.util.Formatting.GREEN), true);
-                    return ActionResult.SUCCESS;
-                }
-            }
+        if (hand == Hand.OFF_HAND) return ActionResult.PASS;
+        if (level.isClient) return ActionResult.SUCCESS;
+        if (level.getBlockEntity(pos) instanceof MonitorBlockEntity be) {
+            return MonitorInputHandler.onUse(be, player, hand, hit, state.get(FACING));
         }
-
-        if (RadarConfig.client().useGuiByDefault.get()) {
-            BlockEntity be = level.getBlockEntity(pos);
-            if (be instanceof MonitorBlockEntity monitor) {
-                if (level.isClient) {
-                    openMonitorScreenClient(monitor);
-                }
-                return ActionResult.success(level.isClient);
-            }
-        }
-
-        if (player.isSneaking()) {
-            BlockEntity be = level.getBlockEntity(pos);
-            if (be instanceof MonitorBlockEntity monitor && isGuiHotspot(monitor, hit)) {
-                if (level.isClient) {
-                    openMonitorScreenClient(monitor);
-                }
-                return ActionResult.success(level.isClient);
-            }
-        }
-
-        return onBlockEntityUse(level, pos, monitorBlockEntity ->
-                MonitorInputHandler.onUse(monitorBlockEntity.getController(), player, hand, hit, state.get(FACING)));
+        return ActionResult.PASS;
     }
 
     public enum Shape implements StringIdentifiable {
@@ -139,48 +104,4 @@ public class MonitorBlock extends HorizontalFacingBlock implements IBE<MonitorBl
         super.appendProperties(builder);
     }
 
-    private static boolean isGuiHotspot(MonitorBlockEntity anyPiece, BlockHitResult hit) {
-        if (anyPiece == null || anyPiece.getWorld() == null) return false;
-
-        MonitorBlockEntity controller = anyPiece.isController() ? anyPiece : anyPiece.getController();
-        if (controller == null) return false;
-
-        Direction screenFace = controller.getCachedState().get(FACING);
-        if (hit.getSide() != screenFace) return false;
-
-        BlockPos controllerPos = controller.getControllerPos();
-        if (controllerPos == null) controllerPos = controller.getPos();
-        if (!hit.getBlockPos().equals(controllerPos)) return false;
-
-        int size = controller.getSize();
-        if (size <= 0) return false;
-
-        int stripPx = (size == 1) ? 3 : 6;
-        float epsY = stripPx / 16f;
-        Vec3d local = hit.getPos().subtract(controllerPos.getX(), controllerPos.getY(), controllerPos.getZ());
-        float v = 1f - (float) local.y;
-        return v >= 1f - epsY;
-    }
-
-    private void openMonitorScreenClient(MonitorBlockEntity anyPiece) {
-        if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
-            BlockPos pos = anyPiece.getPos();
-            ClientHelper.openMonitorScreen(pos);
-        }
-    }
-
-    @Environment(EnvType.CLIENT)
-    private static final class ClientHelper {
-        static void openMonitorScreen(BlockPos clickedPos) {
-            var mc = net.minecraft.client.MinecraftClient.getInstance();
-            if (mc.world == null) return;
-            BlockEntity be = mc.world.getBlockEntity(clickedPos);
-            if (!(be instanceof MonitorBlockEntity anyPiece)) return;
-            MonitorBlockEntity controller = anyPiece.isController() ? anyPiece : anyPiece.getController();
-            if (controller == null) return;
-            BlockPos controllerPos = controller.getControllerPos();
-            if (controllerPos == null) controllerPos = controller.getPos();
-            mc.setScreen(new MonitorScreen(controllerPos));
-        }
-    }
 }
