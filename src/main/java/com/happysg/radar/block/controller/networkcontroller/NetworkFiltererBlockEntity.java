@@ -35,10 +35,10 @@ public class NetworkFiltererBlockEntity extends SmartBlockEntity {
     @Override
     public void addBehaviours(List<BlockEntityBehaviour> behaviours) {}
 
-    public static void tick(World world, BlockPos pos, BlockState state, NetworkFiltererBlockEntity be) {
-        if (!(world instanceof ServerWorld sl)) return;
-        if (world.getTime() % 20 != 0) return;
-        be.applyFiltersToNetwork(sl);
+    @Override
+    public void initialize() {
+        super.initialize();
+        if (world instanceof ServerWorld sl) applyFiltersToNetwork(sl);
     }
 
     public void applyFiltersToNetwork(ServerWorld sl) {

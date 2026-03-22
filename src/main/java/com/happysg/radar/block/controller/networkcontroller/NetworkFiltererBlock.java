@@ -11,7 +11,6 @@ import com.simibubi.create.foundation.block.WrenchableDirectionalBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemPlacementContext;
@@ -58,15 +57,6 @@ public class NetworkFiltererBlock extends WrenchableDirectionalBlock implements 
     @Override
     public BlockEntityType<? extends NetworkFiltererBlockEntity> getBlockEntityType() {
         return ModBlockEntityTypes.NETWORK_FILTERER.get();
-    }
-
-    @Override
-    @Nullable
-    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
-        if (!world.isClient && type == ModBlockEntityTypes.NETWORK_FILTERER.get()) {
-            return (w, p, s, be) -> NetworkFiltererBlockEntity.tick(w, p, s, (NetworkFiltererBlockEntity) be);
-        }
-        return null;
     }
 
     @Override
