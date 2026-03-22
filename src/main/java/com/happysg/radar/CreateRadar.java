@@ -3,6 +3,7 @@ package com.happysg.radar;
 import com.happysg.radar.compat.Mods;
 import com.happysg.radar.compat.cbc.CBCCompatRegister;
 import com.happysg.radar.config.RadarConfig;
+import com.happysg.radar.network.FilterNbtPacket;
 import com.happysg.radar.registry.ModBlockEntityTypes;
 import com.happysg.radar.registry.ModBlocks;
 import com.happysg.radar.registry.ModContraptionTypes;
@@ -41,6 +42,7 @@ public class CreateRadar implements ModInitializer {
         RadarConfig.register(MODID);
 
         ModContraptionTypes.register();
+        FilterNbtPacket.registerServer();
 
         Mods.CREATEBIGCANNONS.executeIfInstalled(() -> CBCCompatRegister::registerCBC);
     }

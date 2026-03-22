@@ -45,21 +45,30 @@ public class NetworkFiltererBlockEntity extends SmartBlockEntity {
         NetworkData data = NetworkData.get(sl);
         NetworkData.Group group = data.getOrCreateGroup(dim, pos);
 
-        // Apply detection filter from slot 0
-        ItemStack detStack = inventory[0];
-        if (!detStack.isEmpty() && detStack.hasNbt()) {
-            NbtCompound tag = detStack.getNbt();
-            NbtCompound det = null;
-            if (tag.contains("Filters", NbtElement.COMPOUND_TYPE)) {
-                NbtCompound filters = tag.getCompound("Filters");
-                if (filters.contains("detection", NbtElement.COMPOUND_TYPE))
-                    det = filters.getCompound("detection");
-            } else if (tag.contains("detection", NbtElement.COMPOUND_TYPE)) {
-                det = tag.getCompound("detection");
-            }
-            if (det != null && !det.equals(group.detectionTag)) {
-                data.setDetectionFilter(dim, pos, det);
-            }
+        // Slot 0 — detection filter (entity category toggles)
+        NbtCompound det = readDetectionTag(inventory[0]);
+
+        // Slot 1 — identification filter (player/ship friend-foe lists)
+        // Merge playerList and vs2Ships into the detection tag so that
+        // DetectionConfig.fromTag() picks them up for colour-coding tracks.
+        NbtCompound identNbt = getItemNbt(inventory[1]);
+        if (identNbt != null) {
+            if (det == null) det = new NbtCompound();
+            if (identNbt.contains("playerList", NbtElement.COMPOUND_TYPE))
+                det.put("playerList", identNbt.getCompound("playerList"));
+            if (identNbt.contains("vs2Ships", NbtElement.COMPOUND_TYPE))
+                det.put("vs2Ships", identNbt.getCompound("vs2Ships"));
+        }
+
+        if (det != null && !det.equals(group.detectionTag)) {
+            data.setDetectionFilter(dim, pos, det);
+        }
+
+        // Slot 2 — targeting filter (auto-target settings)
+        NbtCompound targetingNbt = readTargetingTag(inventory[2]);
+        if (targetingNbt != null && !targetingNbt.equals(group.targetingTag)) {
+            group.targetingTag = targetingNbt;
+            data.markDirty();
         }
 
         // Sync radar and monitor links
@@ -69,6 +78,39 @@ public class NetworkFiltererBlockEntity extends SmartBlockEntity {
             if (linkedRadarPos != null)
                 data.setRadarPos(dim, pos, linkedRadarPos);
         }
+    }
+
+    /** Extract the detection sub-tag from a detection filter item, or null if absent. */
+    @Nullable
+    private static NbtCompound readDetectionTag(ItemStack stack) {
+        if (stack.isEmpty() || !stack.hasNbt()) return null;
+        NbtCompound nbt = stack.getNbt();
+        if (nbt.contains("Filters", NbtElement.COMPOUND_TYPE)) {
+            NbtCompound filters = nbt.getCompound("Filters");
+            if (filters.contains("detection", NbtElement.COMPOUND_TYPE))
+                return filters.getCompound("detection");
+        }
+        if (nbt.contains("detection", NbtElement.COMPOUND_TYPE))
+            return nbt.getCompound("detection");
+        return null;
+    }
+
+    /** Extract the targeting sub-tag from a targeting filter item, or null if absent. */
+    @Nullable
+    private static NbtCompound readTargetingTag(ItemStack stack) {
+        if (stack.isEmpty() || !stack.hasNbt()) return null;
+        NbtCompound nbt = stack.getNbt();
+        if (nbt.contains("Filters", NbtElement.COMPOUND_TYPE)) {
+            NbtCompound filters = nbt.getCompound("Filters");
+            if (filters.contains("targeting", NbtElement.COMPOUND_TYPE))
+                return filters.getCompound("targeting");
+        }
+        return null;
+    }
+
+    @Nullable
+    private static NbtCompound getItemNbt(ItemStack stack) {
+        return (stack.isEmpty() || !stack.hasNbt()) ? null : stack.getNbt();
     }
 
     public void linkRadar(ServerWorld sl, BlockPos radarPos) {
