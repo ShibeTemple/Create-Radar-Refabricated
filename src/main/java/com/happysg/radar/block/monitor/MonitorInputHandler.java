@@ -39,7 +39,10 @@ public class MonitorInputHandler {
     public static RadarTrack findTrack(World world, Vec3d hit, MonitorBlockEntity controller) {
         if (controller.getRadarCenterPos() == null) return null;
 
-        Direction monitorFacing = world.getBlockState(controller.getControllerPos()).get(MonitorBlock.FACING);
+        var controllerState = world.getBlockState(controller.getControllerPos());
+        if (!controllerState.contains(MonitorBlock.FACING)) return null;
+
+        Direction monitorFacing = controllerState.get(MonitorBlock.FACING);
         Direction clockwise = monitorFacing.rotateYClockwise();
         int size = controller.getSize();
 
