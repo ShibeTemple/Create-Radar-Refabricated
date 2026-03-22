@@ -52,6 +52,9 @@ dependencies {
 
     // REI - runtime only for testing
     modRuntimeOnly "me.shedaniel:RoughlyEnoughItems-fabric:${rei_version}"
+
+    // Spark profiler (dev runtime only)
+    modRuntimeOnly "maven.modrinth:spark:${spark_version}"
 }
 
 processResources {
