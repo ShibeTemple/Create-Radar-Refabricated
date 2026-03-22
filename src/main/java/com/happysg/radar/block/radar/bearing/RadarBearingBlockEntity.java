@@ -2,7 +2,6 @@ package com.happysg.radar.block.radar.bearing;
 
 import com.happysg.radar.CreateRadar;
 import com.happysg.radar.block.behavior.networks.NetworkData;
-import com.happysg.radar.block.behavior.networks.config.DetectionConfig;
 import com.happysg.radar.block.radar.behavior.IRadar;
 import com.happysg.radar.block.radar.behavior.RadarScanningBlockBehavior;
 import com.happysg.radar.block.radar.track.RadarTrack;
@@ -37,8 +36,6 @@ public class RadarBearingBlockEntity extends MechanicalBearingBlockEntity implem
     private boolean creative;
     private Direction receiverFacing = Direction.NORTH;
     private RadarScanningBlockBehavior scanningBehavior;
-    private Collection<RadarTrack> networkFilteredTracks = List.of();
-    private long lastFilterTick = -1;
     // Cached receiverAngle — recomputed only when receiverFacing changes.
     private Direction cachedReceiverFacingForAngle = null;
     private float cachedReceiverAngle = 0f;
@@ -67,14 +64,6 @@ public class RadarBearingBlockEntity extends MechanicalBearingBlockEntity implem
         if (running) {
             scanningBehavior.setRange(getRange());
             scanningBehavior.setAngle(getGlobalAngle());
-        }
-
-        if (!world.isClient) {
-            long gt = world.getTime();
-            if (gt % 5 == 0 && gt != lastFilterTick) {
-                lastFilterTick = gt;
-                recomputeNetworkFilteredTracks();
-            }
         }
 
         if (!world.isClient && world.getTime() % 40 == 0) {
@@ -222,34 +211,6 @@ public class RadarBearingBlockEntity extends MechanicalBearingBlockEntity implem
 
     public Collection<RadarTrack> getTracks() {
         return scanningBehavior.getRadarTracks();
-    }
-
-    @Nullable
-    private NetworkData.Group getNetworkGroup() {
-        if (world == null || world.isClient) return null;
-        if (!(world instanceof ServerWorld sl)) return null;
-        NetworkData data = NetworkData.get(sl);
-        BlockPos filtererPos = data.getFiltererForEndpoint(sl.getRegistryKey(), pos);
-        if (filtererPos == null) return null;
-        return data.getGroup(sl.getRegistryKey(), filtererPos);
-    }
-
-    private DetectionConfig getDetectionFilterFromNetworkOrDefault() {
-        NetworkData.Group g = getNetworkGroup();
-        if (g == null) return DetectionConfig.DEFAULT;
-        return DetectionConfig.fromTag(g.detectionTag);
-    }
-
-    private void recomputeNetworkFilteredTracks() {
-        if (world == null || world.isClient) return;
-        if (getNetworkGroup() == null) {
-            networkFilteredTracks = scanningBehavior.getRadarTracks();
-            return;
-        }
-        DetectionConfig det = getDetectionFilterFromNetworkOrDefault();
-        networkFilteredTracks = scanningBehavior.getRadarTracks().stream()
-                .filter(det::test)
-                .toList();
     }
 
     @Override

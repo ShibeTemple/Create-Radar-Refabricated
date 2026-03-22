@@ -38,6 +38,12 @@ public class RadarScanningBlockBehavior extends BlockEntityBehaviour {
     private SmartBlockEntity bearingEntity;
     Vec3d scanPos = Vec3d.ZERO;
 
+    // Cached once per scan tick to avoid per-entity config reads.
+    private int cachedYScanRange = 20;
+    // Split-box cache: rebuilt only when range changes.
+    private List<Box> cachedSplitBoxes = null;
+    private double splitBoxCachedRange = Double.NaN;
+
     private boolean scanPlayers = true;
     private boolean scanContraptions = true;
     private boolean scanMobs = true;
@@ -96,6 +102,7 @@ public class RadarScanningBlockBehavior extends BlockEntityBehaviour {
         if (blockEntity.getWorld() == null || blockEntity.getWorld().isClient) return;
         if (blockEntity.getWorld().getTime() % 5 != 1) return;
 
+        cachedYScanRange = RadarConfig.server().radarYScanRange.get();
         removeDeadTracks();
         if (running) updateRadarTracks();
         if (running) {
@@ -123,14 +130,15 @@ public class RadarScanningBlockBehavior extends BlockEntityBehaviour {
     }
 
     private boolean isInFovAndRange(Vec3d target) {
-        double horizontalDistance = Math.sqrt(Math.pow(target.x - scanPos.x, 2) + Math.pow(target.z - scanPos.z, 2));
+        double dx = target.x - scanPos.x;
+        double dz = target.z - scanPos.z;
+        double horizontalDistance = Math.sqrt(dx * dx + dz * dz);
         double verticalDistance = Math.abs(target.y - scanPos.y);
-        double yScanRange = RadarConfig.server().radarYScanRange.get();
 
-        if (horizontalDistance > range || verticalDistance > yScanRange) return false;
+        if (horizontalDistance > range || verticalDistance > cachedYScanRange) return false;
         if (horizontalDistance < 2) return true;
 
-        double angleToEntity = Math.toDegrees(Math.atan2(target.x - scanPos.x, target.z - scanPos.z));
+        double angleToEntity = Math.toDegrees(Math.atan2(dx, dz));
         angleToEntity = (angleToEntity + 360) % 360;
         double angleDiff = Math.abs(angleToEntity - angle);
         if (angleDiff > 180) angleDiff = 360 - angleDiff;
@@ -164,7 +172,11 @@ public class RadarScanningBlockBehavior extends BlockEntityBehaviour {
 
         boolean scanAll = scanPlayers && scanContraptions && scanMobs && scanAnimals && scanProjectiles && scanItems;
 
-        for (Box aabb : splitBox(getRadarBox(), 256)) {
+        if (cachedSplitBoxes == null || splitBoxCachedRange != range) {
+            splitBoxCachedRange = range;
+            cachedSplitBoxes = splitBox(getRadarBox(), 256);
+        }
+        for (Box aabb : cachedSplitBoxes) {
             if (scanAll) {
                 scannedEntities.addAll(level.getOtherEntities(null, aabb));
                 continue;

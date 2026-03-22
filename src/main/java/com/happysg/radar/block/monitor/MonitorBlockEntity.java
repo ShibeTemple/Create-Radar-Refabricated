@@ -38,6 +38,7 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
     boolean reset = false;
     protected Collection<RadarTrack> cachedTracks = new ArrayList<>();
     protected DetectionConfig filter = DetectionConfig.DEFAULT;
+    private NbtCompound lastDetectionTag = null;
     private BlockPos lastKnownPos = BlockPos.ORIGIN;
     public final List<Box> safeZones = new ArrayList<>();
 
@@ -125,7 +126,11 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
             radar = null;
         }
 
-        filter = DetectionConfig.fromTag(g.detectionTag);
+        // Only re-parse DetectionConfig when the tag object is replaced (config changed).
+        if (g.detectionTag != lastDetectionTag) {
+            lastDetectionTag = g.detectionTag;
+            filter = DetectionConfig.fromTag(g.detectionTag);
+        }
         selectedEntity = g.selectedTargetId;
     }
 
