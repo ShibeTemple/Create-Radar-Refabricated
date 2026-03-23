@@ -1,6 +1,10 @@
 package com.happysg.radar.registry;
 
 import com.happysg.radar.CreateRadar;
+import com.happysg.radar.block.controller.cannon.AutoPitchControllerBlock;
+import com.happysg.radar.block.controller.cannon.AutoYawControllerBlock;
+import com.happysg.radar.block.controller.cannon.DataLinkBlock;
+import com.happysg.radar.block.controller.cannon.FireControllerBlock;
 import com.happysg.radar.block.controller.networkcontroller.NetworkFiltererBlock;
 import com.happysg.radar.block.monitor.MonitorBlock;
 import com.happysg.radar.block.radar.bearing.RadarBearingBlock;
@@ -98,6 +102,49 @@ public class ModBlocks {
                     .transform(axeOrPickaxe())
                     .blockstate((ctx, prov) -> prov.directionalBlock(ctx.getEntry(), prov.models()
                             .getExistingFile(ctx.getId()), 0))
+                    .simpleItem()
+                    .register();
+
+    // ── CBC Weapon Controller Blocks ─────────────────────────────────────────
+    // Blockstate files already exist in src/main/resources; datagen lambdas are stubs.
+
+    public static final BlockEntry<DataLinkBlock> DATA_LINK =
+            REGISTRATE.block("data_link", DataLinkBlock::new)
+                    .initialProperties(SharedProperties::softMetal)
+                    .properties(p -> p.nonOpaque())
+                    .properties(p -> p.strength(0.8f))
+                    .transform(axeOrPickaxe())
+                    .blockstate((ctx, prov) -> {}) // existing blockstate file handles variants
+                    .simpleItem()
+                    .register();
+
+    public static final BlockEntry<AutoYawControllerBlock> AUTO_YAW_CONTROLLER =
+            REGISTRATE.block("auto_yaw_controller", AutoYawControllerBlock::new)
+                    .initialProperties(SharedProperties::softMetal)
+                    .properties(p -> p.nonOpaque())
+                    .properties(p -> p.strength(0.8f))
+                    .transform(axeOrPickaxe())
+                    .blockstate((ctx, prov) -> {})
+                    .simpleItem()
+                    .register();
+
+    public static final BlockEntry<AutoPitchControllerBlock> AUTO_PITCH_CONTROLLER =
+            REGISTRATE.block("auto_pitch_controller", AutoPitchControllerBlock::new)
+                    .initialProperties(SharedProperties::softMetal)
+                    .properties(p -> p.nonOpaque())
+                    .properties(p -> p.strength(0.8f))
+                    .transform(axeOrPickaxe())
+                    .blockstate((ctx, prov) -> {})
+                    .simpleItem()
+                    .register();
+
+    public static final BlockEntry<FireControllerBlock> FIRE_CONTROLLER =
+            REGISTRATE.block("fire_controller", FireControllerBlock::new)
+                    .initialProperties(SharedProperties::softMetal)
+                    .properties(p -> p.nonOpaque())
+                    .properties(p -> p.strength(0.8f))
+                    .transform(axeOrPickaxe())
+                    .blockstate((ctx, prov) -> {})
                     .simpleItem()
                     .register();
 

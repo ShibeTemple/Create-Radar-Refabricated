@@ -44,6 +44,10 @@ public class ModCreativeTabs {
             entries.add(ModItems.RADAR_FILTER_ITEM.get());
             entries.add(ModItems.TARGET_FILTER_ITEM.get());
             entries.add(ModItems.BINOCULARS.get());
+            addBlock(entries, ModBlocks.DATA_LINK);
+            addBlock(entries, ModBlocks.AUTO_YAW_CONTROLLER);
+            addBlock(entries, ModBlocks.AUTO_PITCH_CONTROLLER);
+            addBlock(entries, ModBlocks.FIRE_CONTROLLER);
         });
     }
 

@@ -207,6 +207,26 @@ public class NetworkData extends PersistentState {
         markDirty();
     }
 
+    public void addWeaponEndpoint(RegistryKey<World> dim, BlockPos filtererPos, BlockPos weaponPos) {
+        Group g = getOrCreateGroup(dim, filtererPos);
+        g.weaponEndpoints.add(weaponPos);
+        weaponMountToFilterer.put(posKey(dim, weaponPos), filtererKey(new FilterKey(dim, filtererPos)));
+        markDirty();
+    }
+
+    public void removeWeaponEndpoint(RegistryKey<World> dim, BlockPos filtererPos, BlockPos weaponPos) {
+        Group g = getGroup(dim, filtererPos);
+        if (g != null) g.weaponEndpoints.remove(weaponPos);
+        weaponMountToFilterer.remove(posKey(dim, weaponPos));
+        markDirty();
+    }
+
+    @Nullable
+    public BlockPos getFiltererForWeapon(RegistryKey<World> dim, BlockPos weaponPos) {
+        String key = weaponMountToFilterer.get(posKey(dim, weaponPos));
+        return key == null ? null : parseBlockPos(key);
+    }
+
     public void dissolveNetworkForBrokenController(ServerWorld level, BlockPos filtererPos) {
         RegistryKey<World> dim = level.getRegistryKey();
         String key = filtererKey(new FilterKey(dim, filtererPos));
@@ -270,6 +290,14 @@ public class NetworkData extends PersistentState {
                             data.endpointToFilterer.put(posKey(dim, ep), keyStr);
                         }
                     }
+                    if (g.contains("weaponEndpoints", NbtElement.LIST_TYPE)) {
+                        NbtList weps = g.getList("weaponEndpoints", NbtElement.COMPOUND_TYPE);
+                        for (int j = 0; j < weps.size(); j++) {
+                            BlockPos wp = NbtHelper.toBlockPos(weps.getCompound(j));
+                            group.weaponEndpoints.add(wp);
+                            data.weaponMountToFilterer.put(posKey(dim, wp), keyStr);
+                        }
+                    }
                     if (group.radarPos != null)
                         data.endpointToFilterer.put(posKey(dim, group.radarPos), keyStr);
                     data.groupsByFilterer.put(keyStr, group);
@@ -294,6 +322,9 @@ public class NetworkData extends PersistentState {
             NbtList eps = new NbtList();
             for (BlockPos ep : g.monitorEndpoints) eps.add(NbtHelper.fromBlockPos(ep));
             gc.put("monitorEndpoints", eps);
+            NbtList weps = new NbtList();
+            for (BlockPos wp : g.weaponEndpoints) weps.add(NbtHelper.fromBlockPos(wp));
+            gc.put("weaponEndpoints", weps);
             groups.add(gc);
         }
         tag.put("groups", groups);
