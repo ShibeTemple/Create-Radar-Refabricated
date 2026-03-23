@@ -113,7 +113,7 @@ public class RadarScanningBlockBehavior extends BlockEntityBehaviour {
     }
 
     private void updateRadarTracks() {
-        scanPos = PhysicsHandler.getWorldVec(bearingEntity).add(0, 0, 0);
+        scanPos = PhysicsHandler.getWorldVec(bearingEntity);
         World level = blockEntity.getWorld();
         if (level == null) return;
 
@@ -193,7 +193,8 @@ public class RadarScanningBlockBehavior extends BlockEntityBehaviour {
         double x = radarPos.getX() + 0.5;
         double y = radarPos.getY() + 0.5;
         double z = radarPos.getZ() + 0.5;
-        double yScan = RadarConfig.server().radarYScanRange.get();
+        // Use cachedYScanRange — already read from config this tick; avoid a second .get() call.
+        double yScan = cachedYScanRange;
         World level = blockEntity.getWorld();
         double minY = level != null ? Math.max(y - yScan, level.getBottomY()) : y - yScan;
         double maxY = level != null ? Math.min(y + yScan, level.getTopY()) : y + yScan;

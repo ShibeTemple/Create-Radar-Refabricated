@@ -73,9 +73,10 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
             if (world.getTime() % 5 == 0) {
                 syncFromNetwork(sl);
                 updateCacheServerOrClient();
-                MonitorBlockEntity controllerBe = getController();
-                if (controllerBe != null) {
-                    controllerBe.activetrack = controllerBe.resolveActiveTrackFromCache();
+                // Only the controller resolves activetrack; non-controllers do not render
+                // and do not need the world lookup + list scan every 5 ticks.
+                if (isController()) {
+                    activetrack = resolveActiveTrackFromCache();
                 }
                 maybeSendData();
             }
@@ -150,6 +151,13 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
             return;
         }
 
+        // Non-controller monitors never render; skip the stream+filter and avoid sending
+        // redundant track packets. The controller handles everything.
+        if (!isController()) {
+            cachedTracks = List.of();
+            return;
+        }
+
         Optional<IRadar> r = getRadar();
         if (r.isEmpty()) {
             cachedTracks = List.of();
@@ -171,7 +179,7 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
     private RadarTrack resolveActiveTrack() {
         if (selectedEntity == null) return null;
         for (RadarTrack track : cachedTracks) {
-            if (selectedEntity.equals(track.getId()) || selectedEntity.equals(track.id()))
+            if (selectedEntity.equals(track.getId()))
                 return track;
         }
         return null;
@@ -226,8 +234,7 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
     RadarTrack resolveActiveTrackFromCache() {
         if (selectedEntity == null) return null;
         for (RadarTrack t : cachedTracks) {
-            if (t == null) continue;
-            if (selectedEntity.equals(t.getId()) || selectedEntity.equals(t.id()))
+            if (selectedEntity.equals(t.getId()))
                 return t;
         }
         return null;

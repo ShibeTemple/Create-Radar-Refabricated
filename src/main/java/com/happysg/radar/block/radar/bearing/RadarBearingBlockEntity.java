@@ -61,8 +61,9 @@ public class RadarBearingBlockEntity extends MechanicalBearingBlockEntity implem
     public void tick() {
         super.tick();
 
+        // setRange is only needed when the contraption changes (handled in updateContraptionData).
+        // Only the angle changes every tick — avoid 3 config reads per tick from getRange().
         if (running) {
-            scanningBehavior.setRange(getRange());
             scanningBehavior.setAngle(getGlobalAngle());
         }
 
@@ -164,6 +165,7 @@ public class RadarBearingBlockEntity extends MechanicalBearingBlockEntity implem
         dishCount = getContraption().map(RadarContraption::getDishCount).orElse(0);
         receiverFacing = getContraption().map(RadarContraption::getReceiverFacing).orElse(Direction.NORTH);
         creative = getContraption().map(RadarContraption::isCreative).orElse(false);
+        // Range depends on dishCount/config — update here (contraption change) and not in tick().
         scanningBehavior.setRange(getRange());
         scanningBehavior.setScanPos(PhysicsHandler.getWorldVec(this));
         scanningBehavior.setRunning(running);

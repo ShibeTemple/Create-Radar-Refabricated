@@ -5,9 +5,14 @@ import net.createmod.catnip.theme.Color;
 import net.minecraft.entity.Entity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.Vec3d;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.UUID;
 
 public class RadarTrack {
     private final String id;
+    /** Lazily parsed from {@link #id} — avoids allocating a new String via UUID.toString() every frame. */
+    @Nullable private UUID cachedUuid;
     private Vec3d position;
     private Vec3d velocity;
     private long scannedTime;
@@ -78,6 +83,18 @@ public class RadarTrack {
     }
 
     public String getId() { return id; }
+
+    /**
+     * Returns this track's UUID, lazily parsed and cached.
+     * Returns {@code null} if the id is not a valid UUID (e.g. VS2 ship ids).
+     */
+    @Nullable
+    public UUID getUuid() {
+        if (cachedUuid == null) {
+            try { cachedUuid = UUID.fromString(id); } catch (IllegalArgumentException ignored) {}
+        }
+        return cachedUuid;
+    }
     public Vec3d getPosition() { return position; }
     public void setPosition(Vec3d position) { this.position = position; }
     public Vec3d getVelocity() { return velocity; }

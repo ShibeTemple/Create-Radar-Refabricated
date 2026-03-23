@@ -85,16 +85,18 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
 
     private void renderRadarDisplay(IRadar radar, MonitorBlockEntity blockEntity, MatrixStack ms,
                                     VertexConsumerProvider bufferSource, float partialTicks) {
-        renderGrid(radar, blockEntity, ms, bufferSource);
+        // Read config color once per render call to avoid 3 separate config reads + Color allocations.
+        Color radarColor = new Color(RadarConfig.client().groundRadarColor.get());
+        renderGrid(radar, blockEntity, ms, bufferSource, radarColor);
         renderSafeZones(blockEntity, ms, bufferSource);
-        renderBG(blockEntity, ms, bufferSource, MonitorSprite.RADAR_BG_FILLER);
-        renderBG(blockEntity, ms, bufferSource, MonitorSprite.RADAR_BG_CIRCLE);
-        renderSweep(radar, blockEntity, ms, bufferSource);
+        renderBG(blockEntity, ms, bufferSource, MonitorSprite.RADAR_BG_FILLER, radarColor);
+        renderBG(blockEntity, ms, bufferSource, MonitorSprite.RADAR_BG_CIRCLE, radarColor);
+        renderSweep(radar, blockEntity, ms, bufferSource, radarColor);
         renderRadarTracks(radar, blockEntity, ms, bufferSource);
     }
 
     private void renderGrid(IRadar radar, MonitorBlockEntity blockEntity, MatrixStack ms,
-                            VertexConsumerProvider bufferSource) {
+                            VertexConsumerProvider bufferSource, Color color) {
         int size = blockEntity.getSize();
         float range = radar.getRange();
         float gridSpacing = range * 2 / RadarConfig.client().gridBoxScale.get();
@@ -103,8 +105,6 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
                 RenderLayer.getEntityTranslucent(MonitorSprite.GRID_SQUARE.getTexture()));
         Matrix4f m = ms.peek().getPositionMatrix();
         Matrix3f n = ms.peek().getNormalMatrix();
-
-        Color color = new Color(RadarConfig.client().groundRadarColor.get());
         float xmin = 1 - size, zmin = 1 - size, xmax = 1, zmax = 1;
 
         float u0 = -0.5f * gridSpacing, v0 = -0.5f * gridSpacing;
@@ -226,8 +226,8 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
         }
 
         if (track.trackCategory() == TrackCategory.PLAYER) {
-            try {
-                UUID uuid = UUID.fromString(track.getId());
+            UUID uuid = track.getUuid();
+            if (uuid != null) {
                 var player = monitor.getWorld().getPlayerByUuid(uuid);
                 if (player != null) {
                     float xCenter = (xmin + xmax) * 0.5f;
@@ -237,7 +237,7 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
                     renderTrackLabel(ms, bufferSource, player.getName().getString(),
                             xCenter, zBelow, depth, alpha);
                 }
-            } catch (IllegalArgumentException ignored) {
+
             }
         }
     }
@@ -302,23 +302,21 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
     }
 
     private void renderBG(MonitorBlockEntity blockEntity, MatrixStack ms,
-                          VertexConsumerProvider bufferSource, MonitorSprite sprite) {
+                          VertexConsumerProvider bufferSource, MonitorSprite sprite, Color color) {
         int size = blockEntity.getSize();
         Matrix4f m = ms.peek().getPositionMatrix();
         Matrix3f n = ms.peek().getNormalMatrix();
-        Color color = new Color(RadarConfig.client().groundRadarColor.get());
         renderVertices(getBuffer(bufferSource, sprite), m, n, color, ALPHA_BACKGROUND, DEPTH_BACKGROUND,
                 1f - size, 1f - size, 1, 1);
     }
 
     private void renderSweep(IRadar radar, MonitorBlockEntity controller, MatrixStack ms,
-                             VertexConsumerProvider bufferSource) {
+                             VertexConsumerProvider bufferSource, Color color) {
         if (!radar.isRunning()) return;
 
         VertexConsumer buffer = bufferSource.getBuffer(MonitorSprite.RADAR_SWEEP.getRenderLayer());
         Matrix4f m = ms.peek().getPositionMatrix();
         Matrix3f n = ms.peek().getNormalMatrix();
-        Color color = new Color(RadarConfig.client().groundRadarColor.get());
 
         Direction monitorFacing = controller.getCachedState().get(MonitorBlock.FACING);
         ConeDir2D cone = getConeDirectionOnMonitor(monitorFacing, Direction.NORTH);
