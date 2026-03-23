@@ -32,15 +32,46 @@ import rbasamoyai.createbigcannons.munitions.big_cannon.ProjectileBlock;
 import rbasamoyai.createbigcannons.munitions.big_cannon.propellant.BigCannonPropellantBlock;
 import rbasamoyai.createbigcannons.munitions.config.components.BallisticPropertiesComponent;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 public class CannonUtil {
     private static final Logger LOGGER = LoggerFactory.getLogger(CannonUtil.class);
+
+    /**
+     * Cache for {@code getBallisticProperties()} Method lookups per concrete projectile class.
+     * Avoids repeated getDeclaredMethod + setAccessible on every targeting cycle.
+     * Empty Optional = lookup was tried and failed (no such method on that class).
+     */
+    private static final ConcurrentHashMap<Class<?>, Optional<Method>> BALLISTIC_METHOD_CACHE =
+            new ConcurrentHashMap<>();
+
+    /**
+     * Invokes {@code getBallisticProperties()} on {@code projectile} via a cached reflective
+     * Method, or returns {@code null} if the method does not exist or the call fails.
+     */
+    private static BallisticPropertiesComponent invokeBallisticProperties(AbstractBigCannonProjectile projectile) {
+        Optional<Method> cached = BALLISTIC_METHOD_CACHE.computeIfAbsent(projectile.getClass(), cls -> {
+            try {
+                Method m = cls.getDeclaredMethod("getBallisticProperties");
+                m.setAccessible(true);
+                return Optional.of(m);
+            } catch (Throwable t) {
+                return Optional.empty();
+            }
+        });
+        if (cached.isEmpty()) return null;
+        try {
+            return (BallisticPropertiesComponent) cached.get().invoke(projectile);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
 
     private static final BallisticPropertiesComponent AC_FALLBACK = new BallisticPropertiesComponent(-0.025, 0.01, false, 0, 0, 0, 0);
 
@@ -107,14 +138,8 @@ public class CannonUtil {
 
             if (block instanceof ProjectileBlock<?> projectileBlock) {
                 AbstractBigCannonProjectile projectile = projectileBlock.getProjectile(level, Collections.singletonList(containedBlockInfo));
-                try {
-                    Method method = projectile.getClass().getDeclaredMethod("getBallisticProperties");
-                    method.setAccessible(true);
-                    BallisticPropertiesComponent bp = (BallisticPropertiesComponent) method.invoke(projectile);
-                    return bp != null ? bp : BallisticPropertiesComponent.DEFAULT;
-                } catch (Throwable ignored) {
-                    return BallisticPropertiesComponent.DEFAULT;
-                }
+                BallisticPropertiesComponent bp = invokeBallisticProperties(projectile);
+                return bp != null ? bp : BallisticPropertiesComponent.DEFAULT;
             }
         }
 
@@ -214,15 +239,8 @@ public class CannonUtil {
             Block block = containedBlockInfo.state().getBlock();
             if (block instanceof ProjectileBlock<?> projectileBlock) {
                 AbstractBigCannonProjectile projectile = projectileBlock.getProjectile(level, Collections.singletonList(containedBlockInfo));
-                BallisticPropertiesComponent ballisticProperties;
-                try {
-                    Method method = projectile.getClass().getDeclaredMethod("getBallisticProperties");
-                    method.setAccessible(true);
-                    ballisticProperties = (BallisticPropertiesComponent) method.invoke(projectile);
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
-                         ClassCastException e) {
-                    return 0.05;
-                }
+                BallisticPropertiesComponent ballisticProperties = invokeBallisticProperties(projectile);
+                if (ballisticProperties == null) return 0.05;
                 return ballisticProperties.gravity();
             }
         }
@@ -246,14 +264,8 @@ public class CannonUtil {
             Block block = containedBlockInfo.state().getBlock();
             if (block instanceof ProjectileBlock<?> projectileBlock) {
                 AbstractBigCannonProjectile projectile = projectileBlock.getProjectile(level, Collections.singletonList(containedBlockInfo));
-                try {
-                    Method method = projectile.getClass().getDeclaredMethod("getBallisticProperties");
-                    method.setAccessible(true);
-                    BallisticPropertiesComponent bp = (BallisticPropertiesComponent) method.invoke(projectile);
-                    if (bp != null) drag = bp.drag();
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | ClassCastException e) {
-                    return drag;
-                }
+                BallisticPropertiesComponent bp = invokeBallisticProperties(projectile);
+                if (bp != null) drag = bp.drag();
             }
         }
         return drag;

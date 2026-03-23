@@ -42,6 +42,11 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
     private static final float ALPHA_SWEEP = 0.8f;
     private static final float TRACK_POSITION_SCALE = 0.75f;
 
+    // Static Color constants — avoids allocating new Color objects per track per frame.
+    private static final Color COLOR_HOVERED   = new Color(255, 255, 0);
+    private static final Color COLOR_SELECTED  = new Color(255, 0, 0);
+    private static final Color COLOR_SAFE_ZONE = new Color(0x383b42);
+
     public MonitorRenderer(BlockEntityRendererFactory.Context context) {
         super(context);
     }
@@ -134,7 +139,7 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
 
         Matrix4f m = ms.peek().getPositionMatrix();
         Matrix3f n = ms.peek().getNormalMatrix();
-        Color color = new Color(0x383b42);
+        Color color = COLOR_SAFE_ZONE;
         float alpha = 0.4f;
 
         blockEntity.getRadar().ifPresent(radar -> {
@@ -172,21 +177,30 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
 
     private void renderRadarTracks(IRadar radar, MonitorBlockEntity monitor, MatrixStack ms,
                                    VertexConsumerProvider bufferSource) {
-        int depthCounter = 0;
-        for (RadarTrack track : monitor.getTracks()) {
-            renderTrack(track, monitor, radar, ms, bufferSource, depthCounter++);
-        }
-    }
-
-    private void renderTrack(RadarTrack track, MonitorBlockEntity monitor, IRadar radar,
-                             MatrixStack ms, VertexConsumerProvider bufferSource, int depthMultiplier) {
         if (monitor.getWorld() == null) return;
-
+        // Hoist per-frame invariants — these are the same for every track on this monitor.
         Direction monitorFacing = monitor.getCachedState().get(MonitorBlock.FACING);
         float scale = radar.getRange();
         int size = monitor.getSize();
+        Vec3d radarPos = monitor.getRadarCenterPos();
+        if (radarPos == null) return;
+        long currentTime = monitor.getWorld().getTime();
+        DetectionConfig filter = monitor.filter;
+        String hoveredId  = monitor.hoveredEntity;
+        String selectedId = monitor.selectedEntity;
 
-        Vec3d radarPos = PhysicsHandler.getWorldPos(monitor.getWorld(), radar.getWorldPos()).toCenterPos();
+        int depthCounter = 0;
+        for (RadarTrack track : monitor.getTracks()) {
+            renderTrack(track, ms, bufferSource, depthCounter++,
+                    monitorFacing, scale, size, radarPos, currentTime, filter, hoveredId, selectedId);
+        }
+    }
+
+    private void renderTrack(RadarTrack track,
+                             MatrixStack ms, VertexConsumerProvider bufferSource, int depthMultiplier,
+                             Direction monitorFacing, float scale, int size,
+                             Vec3d radarPos, long currentTime, DetectionConfig filter,
+                             String hoveredId, String selectedId) {
         Vec3d relativePos = track.position().subtract(radarPos);
 
         float xOff = calculateTrackOffset(relativePos, monitorFacing, scale, true);
@@ -204,11 +218,9 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
 
         float depth = DEPTH_TRACK_BASE + (depthMultiplier * DEPTH_TRACK_INCREMENT);
 
-        long currentTime = monitor.getWorld().getTime();
         float trackAge = currentTime - track.scannedTime();
         float alpha = Math.max(0f, 1.0f - Math.min(1.0f, trackAge / 100f));
 
-        DetectionConfig filter = monitor.filter;
         Color color = filter.getColor(track);
 
         Matrix4f m = ms.peek().getPositionMatrix();
@@ -216,19 +228,20 @@ public class MonitorRenderer extends SmartBlockEntityRenderer<MonitorBlockEntity
 
         renderVertices(getBuffer(bufferSource, getSpriteForTrack(track)), m, n, color, alpha, depth, xmin, zmin, xmax, zmax);
 
-        if (track.id().equals(monitor.hoveredEntity)) {
+        if (track.id().equals(hoveredId)) {
             renderVertices(getBuffer(bufferSource, MonitorSprite.TARGET_HOVERED),
-                    m, n, new Color(255, 255, 0), alpha, depth - 0.0001f, xmin, zmin, xmax, zmax);
+                    m, n, COLOR_HOVERED, alpha, depth - 0.0001f, xmin, zmin, xmax, zmax);
         }
-        if (track.id().equals(monitor.selectedEntity)) {
+        if (track.id().equals(selectedId)) {
             renderVertices(getBuffer(bufferSource, MonitorSprite.TARGET_SELECTED),
-                    m, n, new Color(255, 0, 0), alpha, depth - 0.0002f, xmin, zmin, xmax, zmax);
+                    m, n, COLOR_SELECTED, alpha, depth - 0.0002f, xmin, zmin, xmax, zmax);
         }
 
         if (track.trackCategory() == TrackCategory.PLAYER) {
             UUID uuid = track.getUuid();
             if (uuid != null) {
-                var player = monitor.getWorld().getPlayerByUuid(uuid);
+                var mcWorld = MinecraftClient.getInstance().world;
+                var player = mcWorld != null ? mcWorld.getPlayerByUuid(uuid) : null;
                 if (player != null) {
                     float xCenter = (xmin + xmax) * 0.5f;
                     float zCenter = (zmin + zmax) * 0.5f;
