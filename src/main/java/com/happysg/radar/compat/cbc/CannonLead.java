@@ -72,32 +72,38 @@ public class CannonLead {
             int maxTicks,
             boolean applyDrag
     ) {
-        Vec3d pos = muzzlePos;
-        Vec3d vel = shooterVelPerTickAtFire.add(dirUnit.multiply(muzzleSpeedPerTick));
+        // Use raw doubles to avoid allocating 3 Vec3d objects per iteration.
+        // Callers only use sim.ticks; pos/vel are reconstructed at exit points only.
+        double px = muzzlePos.x, py = muzzlePos.y, pz = muzzlePos.z;
+        double vx = shooterVelPerTickAtFire.x + dirUnit.x * muzzleSpeedPerTick;
+        double vy = shooterVelPerTickAtFire.y + dirUnit.y * muzzleSpeedPerTick;
+        double vz = shooterVelPerTickAtFire.z + dirUnit.z * muzzleSpeedPerTick;
 
         double targetDistSqr = targetHorizontalDist * targetHorizontalDist;
+        double mx = muzzlePos.x, mz = muzzlePos.z;
 
         for (int tick = 0; tick <= maxTicks; tick++) {
-            double dx = pos.x - muzzlePos.x;
-            double dz = pos.z - muzzlePos.z;
+            double dx = px - mx;
+            double dz = pz - mz;
             if (dx * dx + dz * dz >= targetDistSqr) {
-                return new SimResult(tick, pos, vel);
+                return new SimResult(tick, new Vec3d(px, py, pz), new Vec3d(vx, vy, vz));
             }
 
-            if (vel.lengthSquared() <= 1.0e-4) {
-                return new SimResult(tick, pos, vel);
+            if (vx * vx + vy * vy + vz * vz <= 1.0e-4) {
+                return new SimResult(tick, new Vec3d(px, py, pz), new Vec3d(vx, vy, vz));
             }
 
-            vel = vel.add(0.0, gravityPerTick, 0.0);
+            vy += gravityPerTick;
 
             if (applyDrag && drag != 0.0) {
-                vel = vel.multiply(1.0 - drag);
+                double f = 1.0 - drag;
+                vx *= f; vy *= f; vz *= f;
             }
 
-            pos = pos.add(vel);
+            px += vx; py += vy; pz += vz;
         }
 
-        return new SimResult(maxTicks, pos, vel);
+        return new SimResult(maxTicks, new Vec3d(px, py, pz), new Vec3d(vx, vy, vz));
     }
 
     public static LeadSolution solveLeadPerTickWithAcceleration(

@@ -21,6 +21,8 @@ import static java.lang.Math.toRadians;
 
 public class CannonTargeting {
     private static final Logger LOGGER = LoggerFactory.getLogger(CannonTargeting.class);
+    /** Reused across calls — BrentSolver resets internal state at the start of each solve(). */
+    private static final UnivariateSolver SOLVER = new BrentSolver(1e-32);
 
     public static double calculateProjectileYatX(double speed, double dX, double thetaRad, double drag, double g) {
         double l = log(1 - (drag * dX) / (speed * Math.cos(thetaRad)));
@@ -63,7 +65,6 @@ public class CannonTargeting {
             return y - dY;
         };
 
-        UnivariateSolver solver = new BrentSolver(1e-32);
 
         double start = -90, end = 90, step = 1.0;
         List<Double> roots = new ArrayList<>();
@@ -76,7 +77,7 @@ public class CannonTargeting {
 
             if (prevValue * currValue < 0) {
                 try {
-                    double root = solver.solve(1000, diffFunction, prevTheta, theta);
+                    double root = SOLVER.solve(1000, diffFunction, prevTheta, theta);
                     roots.add(root);
                 } catch (Exception e) {
                     return null;

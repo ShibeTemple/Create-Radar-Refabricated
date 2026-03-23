@@ -58,6 +58,9 @@ public class MonitorBlockEntity extends SmartBlockEntity implements INetworkNode
     @Override
     public void initialize() {
         super.initialize();
+        // Prevent the 40-tick position-update check from doing a pointless ORIGIN→pos
+        // lookup on every run. For non-VS2 setups this will always short-circuit.
+        lastKnownPos = pos;
         updateCacheServerOrClient();
     }
 

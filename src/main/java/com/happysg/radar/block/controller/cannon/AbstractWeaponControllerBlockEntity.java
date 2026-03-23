@@ -124,7 +124,10 @@ public abstract class AbstractWeaponControllerBlockEntity extends SmartBlockEnti
             }
             if (closest == null) { aligned = false; return; }
             targetId = closest.getId();
-            data.setSelectedTargetId(group, targetId);
+            // Only write + markDirty if the selection actually changed.
+            if (!targetId.equals(group.selectedTargetId)) {
+                data.setSelectedTargetId(group, targetId);
+            }
         }
 
         // Locate the track

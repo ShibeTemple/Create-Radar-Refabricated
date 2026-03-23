@@ -45,6 +45,14 @@ public class RadarBearingBlockEntity extends MechanicalBearingBlockEntity implem
     }
 
     @Override
+    public void initialize() {
+        super.initialize();
+        // Prevent the 40-tick position-update check from doing a pointless ORIGIN→pos
+        // lookup on every run. For non-VS2 setups this will always short-circuit.
+        lastKnownPos = pos;
+    }
+
+    @Override
     public void addBehaviours(List<BlockEntityBehaviour> behaviours) {
         super.addBehaviours(behaviours);
         movementMode.setValue(MovementMode.MOVE_NEVER_PLACE.ordinal());
